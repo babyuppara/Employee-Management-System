@@ -21,34 +21,38 @@ public class Employee {
     @NotBlank(message = "Department is required")
     private String department;
 
+    @NotBlank(message = "Phone is required")
+    private String phone;
+
     @NotNull(message = "Salary is required")
     @Positive(message = "Salary must be positive")
     private Double salary;
 
-    @NotBlank(message = "Phone is required")
-    private String phone;
-
     public Employee() {}
 
-    public Employee(String name, String email, String department, Double salary, String phone) {
+    public Employee(String name, String email, String department,
+                    String phone, Double salary) {
         this.name = name;
         this.email = email;
         this.department = department;
-        this.salary = salary;
         this.phone = phone;
+        this.salary = salary;
     }
 
     public Long getId() { return id; }
-    public String getName() { return name; }
-    public String getEmail() { return email; }
-    public String getDepartment() { return department; }
-    public Double getSalary() { return salary; }
-    public String getPhone() { return phone; }
 
-    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getDepartment() { return department; }
     public void setDepartment(String department) { this.department = department; }
-    public void setSalary(Double salary) { this.salary = salary; }
+
+    public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+
+    public Double getSalary() { return salary; }
+    public void setSalary(Double salary) { this.salary = salary; }
 }

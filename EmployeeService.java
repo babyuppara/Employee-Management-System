@@ -1,5 +1,4 @@
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 
 @Service
@@ -26,11 +25,13 @@ public class EmployeeService {
 
     public Employee updateEmployee(Long id, Employee updated) {
         Employee employee = getEmployee(id);
+
         employee.setName(updated.getName());
         employee.setEmail(updated.getEmail());
         employee.setDepartment(updated.getDepartment());
-        employee.setSalary(updated.getSalary());
         employee.setPhone(updated.getPhone());
+        employee.setSalary(updated.getSalary());
+
         return repository.save(employee);
     }
 
@@ -45,7 +46,8 @@ public class EmployeeService {
         if (keyword == null || keyword.isBlank()) {
             return repository.findAll();
         }
+
         return repository.findByNameContainingIgnoreCaseOrDepartmentContainingIgnoreCase(
-                keyword, keyword);
+                keyword.trim(), keyword.trim());
     }
 }

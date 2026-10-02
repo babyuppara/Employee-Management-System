@@ -1,7 +1,6 @@
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 @RestController
@@ -31,13 +30,15 @@ public class EmployeeController {
     }
 
     @PostMapping
-    public ResponseEntity<Employee> create(@Valid @RequestBody Employee employee) {
+    public ResponseEntity<Employee> create(
+            @Valid @RequestBody Employee employee) {
         return ResponseEntity.ok(service.createEmployee(employee));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Employee> update(
-            @PathVariable Long id, @Valid @RequestBody Employee employee) {
+            @PathVariable Long id,
+            @Valid @RequestBody Employee employee) {
         return ResponseEntity.ok(service.updateEmployee(id, employee));
     }
 

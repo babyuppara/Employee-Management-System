@@ -1,237 +1,201 @@
-/*
- * EmployeeHub frontend
- *
- * LOCAL:
- *   Start Spring Boot on port 8080.
- *   Keep the URL below as http://localhost:8080/api/employees
- *
- * ONLINE:
- *   GitHub Pages cannot run Spring Boot.
- *   After deploying your Spring Boot backend somewhere, replace
- *   API with that public backend URL.
- */
+const STORAGE_KEY = "eemployeehub_employees_v1";
 
-const API = "http://localhost:8080/api/employees";
-
-let employees = [];
-
-document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("employeeForm")
-        .addEventListener("submit", saveEmployee);
-
-    document.getElementById("modal")
-        .addEventListener("click", e => {
-            if (e.target.id === "modal") closeModal();
-        });
-
-    loadEmployees();
-});
-
-async function loadEmployees() {
-    try {
-        const res = await fetch(API);
-
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-        }
-
-        employees = await res.json();
-        render(employees);
-    } catch (error) {
-        console.error("GET employees failed:", error);
-        showError(
-            "Could not connect to Spring Boot. Start Spring Boot and MySQL, then refresh."
-        );
-    }
+function getEmployees() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
 }
 
-function render(list) {
-    const body = document.getElementById("employeeTable");
-    const empty = document.getElementById("empty");
-
-    body.innerHTML = "";
-
-    if (!list.length) {
-        empty.textContent = "No employees found.";
-        empty.style.display = "block";
-    } else {
-        empty.style.display = "none";
-
-        list.forEach(e => {
-            body.innerHTML += `
-                <tr>
-                    <td>#${escapeHtml(e.id)}</td>
-                    <td>
-                        <div class="employee-name">${escapeHtml(e.name)}</div>
-                        <div class="email">${escapeHtml(e.email)}</div>
-                    </td>
-                    <td><span class="badge">${escapeHtml(e.department)}</span></td>
-                    <td>${escapeHtml(e.phone)}</td>
-                    <td>₹${Number(e.salary).toLocaleString("en-IN")}</td>
-                    <td>
-                        <button class="action edit"
-                                onclick="editEmployee(${e.id})">✎</button>
-                        <button class="action delete"
-                                onclick="deleteEmployee(${e.id})">🗑</button>
-                    </td>
-                </tr>`;
-        });
-    }
-
-    document.getElementById("total").textContent = list.length;
-    document.getElementById("it").textContent =
-        list.filter(e => e.department === "IT").length;
-    document.getElementById("hr").textContent =
-        list.filter(e => e.department === "HR").length;
-    document.getElementById("finance").textContent =
-        list.filter(e => e.department === "Finance").length;
+function saveEmployees(employees) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
 }
 
-async function searchEmployees() {
-    const keyword = document.getElementById("search").value.trim();
-
-    if (!keyword) {
-        render(employees);
-        return;
-    }
-
-    try {
-        const res = await fetch(
-            `${API}/search?keyword=${encodeURIComponent(keyword)}`
-        );
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        render(await res.json());
-    } catch (error) {
-        console.error("Search failed:", error);
-        showError("Search could not connect to the backend.");
-    }
+function nextId(employees) {
+  return employees.length ? Math.max(...employees.map(e => Number(e.id))) + 1 : 1;
 }
 
-function openModal(employee = null) {
-    document.getElementById("modal").classList.add("show");
-    document.getElementById("formError").textContent = "";
-
-    document.getElementById("modalTitle").textContent =
-        employee ? "Edit Employee" : "Add Employee";
-
-    document.getElementById("employeeId").value = employee?.id || "";
-    document.getElementById("name").value = employee?.name || "";
-    document.getElementById("email").value = employee?.email || "";
-    document.getElementById("department").value = employee?.department || "";
-    document.getElementById("phone").value = employee?.phone || "";
-    document.getElementById("salary").value = employee?.salary ?? "";
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2200);
 }
 
-function closeModal() {
-    document.getElementById("modal").classList.remove("show");
-}
-
-async function saveEmployee(event) {
-    event.preventDefault();
-
-    const errorBox = document.getElementById("formError");
-    errorBox.textContent = "";
-
-    const id = document.getElementById("employeeId").value;
-
-    const data = {
-        name: document.getElementById("name").value.trim(),
-        email: document.getElementById("email").value.trim(),
-        department: document.getElementById("department").value,
-        phone: document.getElementById("phone").value.trim(),
-        salary: Number(document.getElementById("salary").value)
-    };
-
-    if (!data.name || !data.email || !data.department ||
-        !data.phone || !data.salary || data.salary <= 0) {
-        errorBox.textContent = "Please fill all details correctly.";
-        return;
-    }
-
-    try {
-        const res = await fetch(id ? `${API}/${id}` : API, {
-            method: id ? "PUT" : "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
-
-        if (!res.ok) {
-            const serverMessage = await res.text();
-            console.error("Save failed:", res.status, serverMessage);
-
-            if (res.status === 409) {
-                errorBox.textContent = "This email already exists.";
-            } else if (res.status === 400) {
-                errorBox.textContent =
-                    "Please check the details. Name, email, department, phone and positive salary are required.";
-            } else {
-                errorBox.textContent =
-                    `Server error (${res.status}). Check Spring Boot console.`;
-            }
-            return;
-        }
-
-        closeModal();
-        await loadEmployees();
-
-    } catch (error) {
-        console.error("Save request failed:", error);
-        errorBox.textContent =
-            "Backend is not reachable. Start Spring Boot and MySQL first.";
-    }
-}
-
-async function editEmployee(id) {
-    try {
-        const res = await fetch(`${API}/${id}`);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const employee = await res.json();
-        openModal(employee);
-
-    } catch (error) {
-        console.error("Edit load failed:", error);
-        alert("Could not load this employee.");
-    }
-}
-
-async function deleteEmployee(id) {
-    if (!confirm("Delete this employee?")) return;
-
-    try {
-        const res = await fetch(`${API}/${id}`, {
-            method: "DELETE"
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        await loadEmployees();
-
-    } catch (error) {
-        console.error("Delete failed:", error);
-        alert("Could not delete employee. Check the backend.");
-    }
-}
-
-function showError(message) {
-    const empty = document.getElementById("empty");
-    empty.textContent = message;
-    empty.style.display = "block";
+function money(value) {
+  return "₹" + Number(value || 0).toLocaleString("en-IN", {maximumFractionDigits: 2});
 }
 
 function escapeHtml(value) {
-    return String(value ?? "").replace(/[&<>"']/g, m => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-    }[m]));
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
 }
 
-loadEmployees();
+function employeeRow(emp) {
+  return `<tr>
+    <td>${emp.id}</td>
+    <td><strong>${escapeHtml(emp.name)}</strong></td>
+    <td>${escapeHtml(emp.email)}</td>
+    <td>${escapeHtml(emp.department)}</td>
+    <td>${escapeHtml(emp.phone)}</td>
+    <td>${money(emp.salary)}</td>
+    <td class="actions">
+      <button class="edit-btn" onclick="editEmployee(${emp.id})">Edit</button>
+      <button class="delete-btn" onclick="deleteEmployee(${emp.id})">Delete</button>
+    </td>
+  </tr>`;
+}
+
+function renderDashboard() {
+  const employees = getEmployees();
+  document.getElementById("total-count").textContent = employees.length;
+  document.getElementById("it-count").textContent = employees.filter(e => e.department === "IT").length;
+  document.getElementById("hr-count").textContent = employees.filter(e => e.department === "HR").length;
+  document.getElementById("finance-count").textContent = employees.filter(e => e.department === "Finance").length;
+
+  const recent = [...employees].reverse().slice(0, 5);
+  const table = document.getElementById("dashboard-table");
+  table.innerHTML = recent.map(employeeRow).join("");
+  document.getElementById("dashboard-empty").classList.toggle("hidden", recent.length > 0);
+}
+
+function renderEmployees() {
+  const query = document.getElementById("search").value.trim().toLowerCase();
+  const dept = document.getElementById("department-filter").value;
+  let employees = getEmployees();
+
+  employees = employees.filter(e => {
+    const matchesSearch = !query || [e.name,e.email,e.department,e.phone,String(e.id)]
+      .some(v => String(v).toLowerCase().includes(query));
+    const matchesDept = !dept || e.department === dept;
+    return matchesSearch && matchesDept;
+  });
+
+  document.getElementById("employee-table").innerHTML = employees.map(employeeRow).join("");
+  document.getElementById("employee-empty").classList.toggle("hidden", employees.length > 0);
+}
+
+function refresh() {
+  renderDashboard();
+  renderEmployees();
+}
+
+function resetForm() {
+  document.getElementById("employee-form").reset();
+  document.getElementById("emp-id").value = "";
+  document.getElementById("form-title").textContent = "Add Employee";
+}
+
+function editEmployee(id) {
+  const emp = getEmployees().find(e => Number(e.id) === Number(id));
+  if (!emp) return;
+  showPage("add");
+  document.getElementById("emp-id").value = emp.id;
+  document.getElementById("name").value = emp.name;
+  document.getElementById("email").value = emp.email;
+  document.getElementById("department").value = emp.department;
+  document.getElementById("phone").value = emp.phone;
+  document.getElementById("salary").value = emp.salary;
+  document.getElementById("form-title").textContent = "Edit Employee";
+}
+
+function deleteEmployee(id) {
+  const employees = getEmployees();
+  const emp = employees.find(e => Number(e.id) === Number(id));
+  if (!emp) return;
+  if (!confirm(`Delete employee "${emp.name}"?`)) return;
+  saveEmployees(employees.filter(e => Number(e.id) !== Number(id)));
+  refresh();
+  showToast("Employee deleted");
+}
+
+function showPage(page) {
+  const pages = ["dashboard","employees","add","settings"];
+  pages.forEach(p => document.getElementById(`${p}-page`).classList.toggle("hidden", p !== page));
+
+  document.querySelectorAll(".nav-link").forEach(a => a.classList.toggle("active", a.dataset.page === page));
+
+  const titles = {
+    dashboard:["Employee Management","Dashboard overview"],
+    employees:["Employees","Manage your employee records"],
+    add:[document.getElementById("emp-id").value ? "Edit Employee" : "Add Employee","Enter employee details below"],
+    settings:["Settings","Manage local application data"]
+  };
+  document.getElementById("page-title").textContent = titles[page][0];
+  document.getElementById("page-subtitle").textContent = titles[page][1];
+
+  if (page === "dashboard") renderDashboard();
+  if (page === "employees") renderEmployees();
+  if (page === "add") document.getElementById("page-title").textContent = document.getElementById("form-title").textContent;
+}
+
+document.querySelectorAll(".nav-link").forEach(link => {
+  link.addEventListener("click", e => {
+    e.preventDefault();
+    showPage(link.dataset.page);
+    history.replaceState(null, "", "#" + link.dataset.page);
+  });
+});
+
+document.querySelectorAll("[data-page-target]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const page = btn.dataset.pageTarget;
+    showPage(page);
+    history.replaceState(null, "", "#" + page);
+  });
+});
+
+document.getElementById("top-add").addEventListener("click", () => {
+  resetForm();
+  showPage("add");
+  history.replaceState(null, "", "#add");
+});
+
+document.getElementById("employee-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const employees = getEmployees();
+  const id = document.getElementById("emp-id").value;
+
+  const employee = {
+    id: id ? Number(id) : nextId(employees),
+    name: document.getElementById("name").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    department: document.getElementById("department").value,
+    phone: document.getElementById("phone").value.trim(),
+    salary: Number(document.getElementById("salary").value)
+  };
+
+  if (id) {
+    const index = employees.findIndex(e => Number(e.id) === Number(id));
+    employees[index] = employee;
+    showToast("Employee updated successfully");
+  } else {
+    employees.push(employee);
+    showToast("Employee added successfully");
+  }
+
+  saveEmployees(employees);
+  refresh();
+  resetForm();
+  showPage("employees");
+  history.replaceState(null, "", "#employees");
+});
+
+document.getElementById("clear-form").addEventListener("click", resetForm);
+document.getElementById("search").addEventListener("input", renderEmployees);
+document.getElementById("department-filter").addEventListener("change", renderEmployees);
+
+document.getElementById("clear-all").addEventListener("click", () => {
+  if (!getEmployees().length) return showToast("No employee data to clear");
+  if (!confirm("Delete ALL employee records? This cannot be undone.")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  refresh();
+  showToast("All employee data cleared");
+});
+
+window.addEventListener("hashchange", () => {
+  const page = location.hash.replace("#", "");
+  showPage(["dashboard","employees","add","settings"].includes(page) ? page : "dashboard");
+});
+
+const initialPage = location.hash.replace("#", "");
+showPage(["dashboard","employees","add","settings"].includes(initialPage) ? initialPage : "dashboard");
